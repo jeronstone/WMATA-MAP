@@ -4,12 +4,14 @@ from get_train_seq_percs import *
 
 ws = websocket.WebSocket()
 
-ws.connect(ESP_IP)
+ws.connect("ws://" + ESP_IP+ "/")
 
-line_pos_dict= get_curr_train_seq_percs()
+line_pos_dict = json_helper(get_curr_train_seq_percs())
+print(line_pos_dict)
 
 ws.send(json.dumps(line_pos_dict))
 result = ws.recv()
+print("Sent!!!!!!!!!!!!!!")
 print(result)
  
 ws.close()

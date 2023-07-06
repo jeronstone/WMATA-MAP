@@ -25,3 +25,14 @@ def get_curr_train_seq_percs():
     
     return trains_per_line
 
+def json_helper(json_input):
+    dict_float_arr_to_string = {}
+    for k, v in json_input.items():
+        for x in v:
+            try:
+                dict_float_arr_to_string[k] += "" + str(x) + ";"
+            except:
+                dict_float_arr_to_string[k] = "!!!" + str(x) + ";"
+        dict_float_arr_to_string[k] += "!!!"
+
+    return dict_float_arr_to_string

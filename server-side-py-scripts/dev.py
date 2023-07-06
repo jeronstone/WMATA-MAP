@@ -1,3 +1,7 @@
 from get_train_seq_percs import *
+import json
 
-print(get_curr_train_seq_percs())
+x = get_curr_train_seq_percs()
+print(x)
+
+json_helper(x)

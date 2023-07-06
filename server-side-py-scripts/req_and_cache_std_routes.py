@@ -5,6 +5,8 @@ lines = {}
 
 std_routes = get_std_routes()
 
+ROUND_DEC = 4
+
 for route in std_routes:
     line_dict = {}
     line_dict['route'] = route
@@ -15,7 +17,7 @@ circuit_arr = [None] * 9999
 for k, v in lines.items():
     for circuit in v['route']['TrackCircuits']:
         cir_dict = {}
-        cir_dict['seq_perc'] = (circuit['SeqNum'] / v['max_seq'])
+        cir_dict['seq_perc'] = round((circuit['SeqNum'] / v['max_seq']), ROUND_DEC)
         circuit_arr[circuit['CircuitId']] = cir_dict
 
 f = open("circuit_cache", "w")
