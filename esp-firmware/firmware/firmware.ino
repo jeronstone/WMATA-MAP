@@ -22,19 +22,23 @@ void handleReceivedMessage(String message){
 
     const char * red_line = parsed["RD"];
 
-    double curr_pos[20] = {-1};
-    process(red_line, curr_pos);
+    double curr_pos_red[40];
+    memset(curr_pos_red, -1, 40);
+    
+    process(red_line, curr_pos_red);
 
-    for (int i = 0; i < 20; i ++) {
-      if (curr_pos[i] >= 0) {
-        int led_to_light = round(curr_pos[i] * NUM_LEDS);
-        Serial.println(curr_pos[i]);
-        Serial.println(led_to_light);
+    clear_leds();
+
+    for (int i = 0; i < 40; i ++) {
+      if (curr_pos_red[i] >= 0) {
+        int led_to_light = round(curr_pos_red[i] * (NUM_LEDS-1));
         leds[led_to_light] = CRGB::Red;
       }
     }
     FastLED.show();
-    delay(500);
+    delay(100);
+
+    Serial.println("Processing Complete");
   }
 
 // todo make int return for err handling
@@ -57,6 +61,15 @@ void process(const char * str_in, double * curr_pos) {
     curr_pos[i++] = atof(c_cpy);
     c++;
   }
+}
+
+// todo figure out faster and better solution
+void clear_leds() {
+  for (int i = 0; i < NUM_LEDS; i ++) {
+      leds[i] = CRGB::Black;
+  }
+  FastLED.show();
+  delay(100);
 }
 
 void setup() {
@@ -85,12 +98,13 @@ void loop() {
     WiFiClient client = server.available();
      
     if (client.connected() && webSocketServer.handshake(client)) {
+        // todo dont use String obj
         String data;      
         
         while (client.connected()) {
     
             data = webSocketServer.getData();
-    
+            
             if (data.length() > 0) {
                 handleReceivedMessage(data);
                 webSocketServer.sendData("rx confirm");
