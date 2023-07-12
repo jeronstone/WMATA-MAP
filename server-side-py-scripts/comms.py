@@ -26,4 +26,4 @@ def update_and_send():
 
 while True:
     update_and_send()
-    sleep(15)
+    sleep(30)

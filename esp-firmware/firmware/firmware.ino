@@ -11,35 +11,7 @@ WebSocketServer webSocketServer;
 
 #define NUM_LEDS 30
 CRGB leds[NUM_LEDS];
-
-void handleReceivedMessage(String message){
-    StaticJsonBuffer<2500> JSONBuffer;
-    JsonObject& parsed = JSONBuffer.parseObject(message);
-    if (!parsed.success()) { 
-        Serial.println("Parsing failed");
-        return;
-    }
-
-    const char * red_line = parsed["RD"];
-
-    double curr_pos_red[40];
-    memset(curr_pos_red, -1, 40);
-    
-    process(red_line, curr_pos_red);
-
-    clear_leds();
-
-    for (int i = 0; i < 40; i ++) {
-      if (curr_pos_red[i] >= 0) {
-        int led_to_light = round(curr_pos_red[i] * (NUM_LEDS-1));
-        leds[led_to_light] = CRGB::Red;
-      }
-    }
-    FastLED.show();
-    delay(100);
-
-    Serial.println("Processing Complete");
-  }
+#define LED_DELAY 5000
 
 // todo make int return for err handling
 void process(const char * str_in, double * curr_pos) { 
@@ -63,21 +35,50 @@ void process(const char * str_in, double * curr_pos) {
   }
 }
 
-// todo figure out faster and better solution
-void clear_leds() {
-  for (int i = 0; i < NUM_LEDS; i ++) {
-      leds[i] = CRGB::Black;
+void handleReceivedMessage(String message){
+    StaticJsonBuffer<2500> JSONBuffer;
+    JsonObject& parsed = JSONBuffer.parseObject(message);
+    if (!parsed.success()) { 
+        Serial.println("Parsing failed");
+        return;
+    }
+
+    const char * red_line = parsed["RD"];
+
+    double curr_pos_red[40];
+    memset(curr_pos_red, -1, 40);
+    
+    process(red_line, curr_pos_red);
+
+    FastLED.clear();
+    FastLED.show();
+    delay(LED_DELAY);
+    
+    for (int i = 0; i < 40; i ++) {
+      if (curr_pos_red[i] >= 0) {
+        int led_to_light = round(curr_pos_red[i] * (NUM_LEDS-1));
+        Serial.println(led_to_light);
+        leds[led_to_light] = CRGB::Red;
+      }
+    }
+    FastLED.show();
+    delay(LED_DELAY);
+  
+    Serial.println("Processing Complete");
   }
-  FastLED.show();
-  delay(100);
-}
 
 void setup() {
 
     Serial.begin(115200);
     delay(2000);
 
-    FastLED.addLeds<NEOPIXEL, 25>(leds, NUM_LEDS);
+    FastLED.setMaxPowerInVoltsAndMilliamps(5,1000); 
+    FastLED.setDither(0);
+    FastLED.addLeds<NEOPIXEL, 23>(leds, NUM_LEDS);
+
+    FastLED.clear();
+    FastLED.show();
+    delay(LED_DELAY);
     
     WiFi.begin(ssid, password); 
  
