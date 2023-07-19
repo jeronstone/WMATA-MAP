@@ -5,7 +5,7 @@
 WiFiServer server(80);
 WebSocketServer webSocketServer;
 
-CRGB leds_red[NUM_LEDS_RD];
+Line leds_red[NUM_LEDS_RD];
 CRGB leds_blue[NUM_LEDS_BL];
 CRGB leds_green[NUM_LEDS_GR];
 CRGB leds_silver[NUM_LEDS_SV];
