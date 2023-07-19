@@ -59,6 +59,31 @@ void handleReceivedMessage(String message){
           line = parsed['BL'];
           lengh = NUM_LEDS_BL;
           color = CRBG::Blue;
+          break;
+        case 2:
+          line = parsed['YL'];
+          length = NUM_LEDS_YL;
+          color = CRGB::Yellow;
+          break;
+        case 3:
+          line = parsed['SV'];
+          lengh = NUM_LEDS_SV;
+          color = CRBG::SlateGrey;
+          break;
+        case 4:
+          line = parsed['OR'];
+          length = NUM_LEDS_OR;
+          color = CRGB::Orange;
+          break;
+        case 5:
+          line = parsed['GR'];
+          lengh = NUM_LEDS_GR;
+          color = CRBG::Green;
+          break;
+        default:
+          line = parsed['RD'];
+          length = NUM_LEDS_RD;
+          color = CRGB::Red;
       }
       
       process(line, curr_pos);
