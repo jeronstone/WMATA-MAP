@@ -47,6 +47,7 @@ void handleReceivedMessage(String message){
     memset(curr_pos, -1, MAX_LED_LEN);
     int length;
     CRGB color;
+    CRGB ** led_strip;
 
     for (int i = 0 ; i < NUM_LINES; i ++) {
       switch(i) {
@@ -54,36 +55,43 @@ void handleReceivedMessage(String message){
           line = parsed['RD'];
           length = NUM_LEDS_RD;
           color = CRGB::Red;
+          led_strip = &leds_red;
           break;
         case 1:
           line = parsed['BL'];
           lengh = NUM_LEDS_BL;
           color = CRBG::Blue;
+          led_strip = &leds_blue;
           break;
         case 2:
           line = parsed['YL'];
           length = NUM_LEDS_YL;
           color = CRGB::Yellow;
+          led_strip = &leds_yellow;
           break;
         case 3:
           line = parsed['SV'];
           lengh = NUM_LEDS_SV;
           color = CRBG::SlateGrey;
+          led_strip = &leds_silver;
           break;
         case 4:
           line = parsed['OR'];
           length = NUM_LEDS_OR;
           color = CRGB::Orange;
+          led_strip = &leds_orange;
           break;
         case 5:
           line = parsed['GR'];
           lengh = NUM_LEDS_GR;
           color = CRBG::Green;
+          led_strip = &leds_green;
           break;
         default:
           line = parsed['RD'];
           length = NUM_LEDS_RD;
           color = CRGB::Red;
+          led_strip = &leds_red;
       }
       
       process(line, curr_pos);
@@ -93,10 +101,10 @@ void handleReceivedMessage(String message){
       delay(LED_DELAY);
       
       for (int i = 0; i < length; i ++) {
-        if (curr_pos_red[i] >= 0) {
-          int led_to_light = round(curr_pos_red[i] * (length-1));
+        if (curr_pos[i] >= 0) {
+          int led_to_light = round(curr_pos[i] * (length-1));
           Serial.println(led_to_light);
-          leds_red[led_to_light] = color;
+          (*led_strip)[led_to_light] = color;
         }
       }
       FastLED.show();
@@ -117,6 +125,11 @@ void setup() {
     FastLED.setDither(0);
 
     FastLED.addLeds<NEOPIXEL, 23>(leds_red, NUM_LEDS_RD);
+    FastLED.addLeds<NEOPIXEL, 1>(leds_blue, NUM_LEDS_RD);
+    FastLED.addLeds<NEOPIXEL, 1>(leds_red, NUM_LEDS_RD);
+    FastLED.addLeds<NEOPIXEL, 1>(leds_red, NUM_LEDS_RD);
+    FastLED.addLeds<NEOPIXEL, 1>(leds_red, NUM_LEDS_RD);
+    FastLED.addLeds<NEOPIXEL, 1>(leds_red, NUM_LEDS_RD);
 
     FastLED.clear();
     FastLED.show();
