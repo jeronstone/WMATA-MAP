@@ -1,20 +1,19 @@
-#include <FastLED.h>
-#include <WiFi.h>
-#include <WebSocketServer.h>
-#include <ArduinoJson.h>
-#include "secret_constants.h"
+#include "firmware.h"
 
 // todo split file into parts plz
 
 WiFiServer server(80);
 WebSocketServer webSocketServer;
 
-#define NUM_LEDS 30
-CRGB leds[NUM_LEDS];
-#define LED_DELAY 5000
+CRGB leds_red[NUM_LEDS_RD];
+CRGB leds_blue[NUM_LEDS_BL];
+CRGB leds_green[NUM_LEDS_GR];
+CRGB leds_silver[NUM_LEDS_SV];
+CRGB leds_yellow[NUM_LEDS_YL];
+CRGB leds_orange[NUM_LEDS_OR];
 
 // todo make int return for err handling
-void process(const char * str_in, double * curr_pos) { 
+void process(char * str_in, double * curr_pos) { 
   if (strcmp(str_in, strstr(str_in, "!!!"))) {
     Serial.println("Error: json format");
     return;
@@ -43,26 +42,43 @@ void handleReceivedMessage(String message){
         return;
     }
 
-    const char * red_line = parsed["RD"];
+    char * line;
+    double curr_pos[MAX_LED_LEN];
+    memset(curr_pos, -1, MAX_LED_LEN);
+    int length;
+    CRGB color;
 
-    double curr_pos_red[40];
-    memset(curr_pos_red, -1, 40);
-    
-    process(red_line, curr_pos_red);
-
-    FastLED.clear();
-    FastLED.show();
-    delay(LED_DELAY);
-    
-    for (int i = 0; i < 40; i ++) {
-      if (curr_pos_red[i] >= 0) {
-        int led_to_light = round(curr_pos_red[i] * (NUM_LEDS-1));
-        Serial.println(led_to_light);
-        leds[led_to_light] = CRGB::Red;
+    for (int i = 0 ; i < NUM_LINES; i ++) {
+      switch(i) {
+        case 0:
+          line = parsed['RD'];
+          length = NUM_LEDS_RD;
+          color = CRGB::Red;
+          break;
+        case 1:
+          line = parsed['BL'];
+          lengh = NUM_LEDS_BL;
+          color = CRBG::Blue;
       }
+      
+      process(line, curr_pos);
+
+      FastLED.clear();
+      //FastLED.show();
+      delay(LED_DELAY);
+      
+      for (int i = 0; i < length; i ++) {
+        if (curr_pos_red[i] >= 0) {
+          int led_to_light = round(curr_pos_red[i] * (length-1));
+          Serial.println(led_to_light);
+          leds_red[led_to_light] = color;
+        }
+      }
+      FastLED.show();
+      delay(LED_DELAY);
+
+      memset(curr_pos, -1, MAX_LED_LEN);
     }
-    FastLED.show();
-    delay(LED_DELAY);
   
     Serial.println("Processing Complete");
   }
@@ -74,7 +90,8 @@ void setup() {
 
     FastLED.setMaxPowerInVoltsAndMilliamps(5,1000); 
     FastLED.setDither(0);
-    FastLED.addLeds<NEOPIXEL, 23>(leds, NUM_LEDS);
+
+    FastLED.addLeds<NEOPIXEL, 23>(leds_red, NUM_LEDS_RD);
 
     FastLED.clear();
     FastLED.show();
