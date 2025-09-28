@@ -1,127 +1,29 @@
-use reqwest::header::{HeaderMap, HeaderValue};
-use reqwest::Client;
-use serde::{Deserialize, Serialize};
-use std::env;
-use std::fmt::Debug;
-use std::collections::HashMap;
-use std::ptr::null;
-use sled::{Db, Tree};
-use bincode::{serialize, deserialize};
+mod api_handle;
 
-const WMATA_URL: &str = "https://api.wmata.com";
+use std::{env, fmt::Debug, collections::HashMap};
+use sled::{Tree};
+use serde::{Deserialize, Serialize};
+use bincode;
 
 const SLED_CACHE: &str = "std_route_cache";
 const SLED_ROUTE_TREE: &str = "route_tree";
 const SLED_KEY: &[u8] = b"vals";
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
-struct TrackCircuit {
-    SeqNum: i32,
-    CircuitId: i32,
-    StationCode: Option<String>
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-struct StandardRoute {
-    LineCode: String,
-    TrackNum: i32,
-    TrackCircuits: Vec<TrackCircuit>
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct StdRoutesAPIResponse {
-    StandardRoutes: Vec<StandardRoute>
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct TrainPosition {
-    TrainId: String,
-    TrainNumber: String,
-    CarCount: i32,
-    DirectionNum: i32,
-    CircuitId: i32,
-    DestinationStationCode: Option<String>,
-    LineCode: Option<String>,
-    SecondsAtLocation: i32,
-    ServiceType: String
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct TrainPosAPIResponse {
-    TrainPositions: Vec<TrainPosition>
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Neighbor {
-    NeighborType: String,
-    CircuitIds: Vec<i32>
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Circuit {
-    Track: i32,
-    CircuitId: i32,
-    Neighbors: Vec<Neighbor>
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct CircuitAPIResponse {
-    TrackCircuits: Vec<Circuit>
-}
-
-async fn make_api_call<T: Debug>(key: String, url: String) -> Result<(T), Box<dyn std::error::Error>> 
-    where for<'de> T: Deserialize<'de>, {
-    let client = Client::new();
-
-    let mut headers = HeaderMap::new();
-    headers.insert("Cache-Control", HeaderValue::from_str("no-cache").expect("nocache fail"));
-    headers.insert("api_key", HeaderValue::from_str(&key).expect("api fail"));
-
-    let response = client
-        .get(url)
-        .headers(headers)
-        .send()
-        .await?;
-
-    if response.status().is_success() {
-        let api_response: T = response.json().await?;
-        //println!("API Response: {:?}", api_response);
-        Ok(api_response)
-    } else {
-        // eprintln!("API call failed with status: {}", response.status());
-        // eprintln!("Response body: {}", response.text().await?);
-        Err("API FAIL".into())
-    }
-
-}
-
-async fn get_std_routes(key: String) -> Result<(StdRoutesAPIResponse), Box<dyn std::error::Error>> {
-    Ok(make_api_call::<StdRoutesAPIResponse>(key, WMATA_URL.to_owned() + "/TrainPositions/StandardRoutes?contentType=json").await?)
-}
-
-async fn get_train_pos(key: String) -> Result<(TrainPosAPIResponse), Box<dyn std::error::Error>> {
-    Ok(make_api_call::<TrainPosAPIResponse>(key, WMATA_URL.to_owned() + "/TrainPositions/TrainPositions?contentType=json").await?)   
-}
-
-async fn get_circuits(key: String) -> Result<(CircuitAPIResponse), Box<dyn std::error::Error>> {
-    Ok(make_api_call::<CircuitAPIResponse>(key, WMATA_URL.to_owned() + "/TrainPositions/TrackCircuits?contentType=json").await?)
-}
-
 #[derive(Clone, Debug)]
 enum LineDictValue {
-    Route(StandardRoute),
+    Route(api_handle::StandardRoute),
     Int(i32),
 }
 
 type SledInnerMap = HashMap<String, f64>;
 #[derive(Serialize, Deserialize, Debug)]
-struct SledWrapper(HashMap<i32, SledInnerMap>);
+struct SledRouteMap(HashMap<i32, SledInnerMap>);
 
 async fn req_and_cache_std_routes(key: String) -> Result<(), Box<dyn std::error::Error>> {
     
     let mut lines: HashMap<String, HashMap<String, LineDictValue>> = HashMap::new();
     
-    let std_rts = get_std_routes(key).await?;
+    let std_rts = api_handle::get_std_routes(key).await?;
     for r in std_rts.StandardRoutes.iter() {
         let mut line_dict : HashMap<String, LineDictValue> = HashMap::new();
         line_dict.insert(String::from("route"), LineDictValue::Route(r.clone()));
@@ -130,7 +32,7 @@ async fn req_and_cache_std_routes(key: String) -> Result<(), Box<dyn std::error:
     }
     
     let mut circuits: HashMap<i32, HashMap<String, f64>> = HashMap::new();
-    for (key, value) in lines.iter() {
+    for (_key, value) in lines.iter() {
         match (value.get("route").unwrap(), value.get("max_seq").unwrap()) {
             (LineDictValue::Route(standard_route), LineDictValue::Int(max_seq)) => {
                 for c in standard_route.TrackCircuits.iter() {
@@ -142,50 +44,43 @@ async fn req_and_cache_std_routes(key: String) -> Result<(), Box<dyn std::error:
             _ => panic!("never happens"),
         }
     }
-    
-    //println!("{:?}", circuits);
 
     let db = sled::open(SLED_CACHE)?;
     let tree: Tree = db.open_tree(SLED_ROUTE_TREE)?;
 
-    let wrapper = SledWrapper(circuits);
+    let wrapper = SledRouteMap(circuits);
     let bytes = bincode::serialize(&wrapper)?;
     tree.insert(SLED_KEY, bytes)?;
    
     Ok(())  
 }
 
-fn read_std_routes_from_cache() -> Result<(SledWrapper), Box<dyn std::error::Error>> {
+fn read_std_routes_from_cache() -> Result<SledRouteMap, Box<dyn std::error::Error>> {
 
     let db: sled::Db = sled::open(SLED_CACHE).unwrap(); 
 
     let tree = db.open_tree(SLED_ROUTE_TREE)?;
 
     if let Some(val) = tree.get(SLED_KEY)? {
-        let decoded: SledWrapper = bincode::deserialize(&val)?;
-        //println!("Decoded: {:?}", decoded);
+        let decoded: SledRouteMap = bincode::deserialize(&val)?;
         Ok(decoded)
     } else {
         Err("Sled read err".into())
     }
 }
 
-async fn get_curr_train_seq_percs(key: String, draw: bool)  -> Result<(HashMap<String, Vec<f64>>), Box<dyn std::error::Error>> {
-    let train_pos = get_train_pos(key).await?;
-
-    let circuits = read_std_routes_from_cache()?;
+async fn get_curr_train_seq_percs(key: String, std_routes: SledRouteMap, draw: bool)  -> Result<HashMap<String, Vec<f64>>, Box<dyn std::error::Error>> {
+    let train_pos = api_handle::get_train_pos(key).await?;
 
     let mut trains_per_line: HashMap<String, Vec<f64>> = HashMap::new();
     for t in train_pos.TrainPositions.iter() {
-        match (&t.LineCode, circuits.0.get(&t.CircuitId)) {
+        match (&t.LineCode, std_routes.0.get(&t.CircuitId)) {
             (Some(lc), Some(ca)) => {
                 trains_per_line.entry(lc.to_string()).or_insert_with(Vec::new).push(*ca.get("seq_perc").unwrap());
             },
             _ => continue,
         }
     };
-
-    //println!("{:?}", trains_per_line);
 
     if draw {
         let w = 100;
@@ -216,10 +111,30 @@ async fn get_curr_train_seq_percs(key: String, draw: bool)  -> Result<(HashMap<S
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     dotenvy::dotenv().ok();
-
     let wmata_api_key  = env::var("WMATA_API_KEY").expect("WMATA API key not set");
+
+    let mut no_cache = false;
+
+    let args: Vec<String> = env::args().collect();
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--no-cache" => no_cache = true,
+            _ => eprintln!("Unknown argument: {}", args[i]),
+        }
+        i += 1;
+    }
     
-    get_curr_train_seq_percs(wmata_api_key, true).await?;
+
+    if no_cache {
+        println!("Getting new std routes and saving to cache...");
+        req_and_cache_std_routes(wmata_api_key.clone()).await?;
+    } else {
+        println!("Using std routes from cache...")
+    }
+
+    let circuits: SledRouteMap = read_std_routes_from_cache()?;
+    let _line_percs = get_curr_train_seq_percs(wmata_api_key.clone(), circuits, true).await?;
 
     Ok(())
 }
