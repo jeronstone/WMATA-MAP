@@ -2,4 +2,6 @@ circuit_cache
 secret_constants*
 __pycache*
 .env
-
+target/
+**/*.rs.bk
+std_route_cache/
