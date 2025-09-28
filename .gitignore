@@ -1,3 +1,5 @@
 circuit_cache
 secret_constants*
 __pycache*
+.env
+
