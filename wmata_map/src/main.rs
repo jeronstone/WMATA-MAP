@@ -188,9 +188,8 @@ async fn get_curr_train_seq_percs(key: String, draw: bool)  -> Result<(HashMap<S
     //println!("{:?}", trains_per_line);
 
     if draw {
-
-        let w = 50;
-
+        let w = 100;
+        
         for (key, values) in &trains_per_line {
             println!("{}:", key);
 
