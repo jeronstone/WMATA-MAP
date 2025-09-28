@@ -163,14 +163,14 @@ fn read_std_routes_from_cache() -> Result<(SledWrapper), Box<dyn std::error::Err
 
     if let Some(val) = tree.get(SLED_KEY)? {
         let decoded: SledWrapper = bincode::deserialize(&val)?;
-        println!("Decoded: {:?}", decoded);
+        //println!("Decoded: {:?}", decoded);
         Ok(decoded)
     } else {
         Err("Sled read err".into())
     }
 }
 
-async fn get_curr_train_seq_percs(key: String)  -> Result<(HashMap<String, Vec<f64>>), Box<dyn std::error::Error>> {
+async fn get_curr_train_seq_percs(key: String, draw: bool)  -> Result<(HashMap<String, Vec<f64>>), Box<dyn std::error::Error>> {
     let train_pos = get_train_pos(key).await?;
 
     let circuits = read_std_routes_from_cache()?;
@@ -185,7 +185,30 @@ async fn get_curr_train_seq_percs(key: String)  -> Result<(HashMap<String, Vec<f
         }
     };
 
-    println!("{:?}", trains_per_line);
+    //println!("{:?}", trains_per_line);
+
+    if draw {
+
+        let w = 50;
+
+        for (key, values) in &trains_per_line {
+            println!("{}:", key);
+
+            let mut line = vec!['-'; w + 1];
+            line[0] = '|';
+            line[w] = '|';
+
+            for &val in values {
+                let pos = (val * w as f64).round() as usize;
+                if pos <= w {
+                    line[pos] = 'x';
+                }
+            }
+
+            let chart: String = line.into_iter().collect();
+            println!("{}", chart);
+        }
+    }
 
     Ok(trains_per_line)
 }
@@ -197,7 +220,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let wmata_api_key  = env::var("WMATA_API_KEY").expect("WMATA API key not set");
     
-    get_curr_train_seq_percs(wmata_api_key).await?;
+    get_curr_train_seq_percs(wmata_api_key, true).await?;
 
     Ok(())
 }
