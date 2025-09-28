@@ -84,7 +84,6 @@ async fn make_api_call<T: Debug>(key: String, url: String) -> Result<(T), Box<dy
         .await?;
 
     if response.status().is_success() {
-        // Deserialize the JSON response into your struct
         let api_response: T = response.json().await?;
         //println!("API Response: {:?}", api_response);
         Ok(api_response)
